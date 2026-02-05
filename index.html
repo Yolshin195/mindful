@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mindful Flow - Rust Edition</title>
+    <style>
+        :root {
+            --primary: #de4a25;
+            --primary-hover: #ff6b4a;
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #141414;
+            --bg-card: #1f1f1f;
+            --text-main: #e0e0e0;
+            --text-muted: #808080;
+            --border: #333333;
+            --input-bg: #111111;
+            --mood-bg: #111111;
+            --ai-bg: #2a1a15;
+        }
+
+        [data-theme="light"] {
+            --bg-body: #f4f4f5;
+            --bg-card: #ffffff;
+            --text-main: #18181b;
+            --text-muted: #71717a;
+            --border: #e4e4e7;
+            --input-bg: #f9f9fb;
+            --mood-bg: #f4f4f5;
+            --ai-bg: #fff7f5;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            transition: background-color var(--transition), color var(--transition);
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 650px;
+            background: var(--bg-card);
+            border-radius: 4px;
+            border-top: 4px solid var(--primary);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+            height: fit-content;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
+        }
+
+        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .tab-btn { background: none; border: none; color: var(--text-muted); font-family: monospace; cursor: pointer; font-weight: bold; font-size: 13px; text-transform: uppercase; padding: 5px 10px; }
+        .tab-btn.active { color: var(--primary); border-bottom: 2px solid var(--primary); }
+
+        .controls-group { display: flex; gap: 15px; align-items: center; }
+
+        .lang-switcher, .theme-switcher {
+            display: flex;
+            gap: 2px;
+            background: var(--border);
+            padding: 2px;
+            border-radius: 4px;
+        }
+
+        .switcher-btn {
+            padding: 4px 10px;
+            background: var(--bg-card);
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .switcher-btn.active { color: var(--primary); }
+
+        .progress-label { display: flex; justify-content: space-between; font-family: monospace; font-size: 11px; margin-bottom: 8px; }
+        .progress-track { height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 30px;}
+        #xp-bar { height: 100%; width: 0%; background: var(--primary); transition: 1s ease; }
+
+        .date-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .date-display { font-family: 'Fira Code', monospace; font-weight: 800; font-size: 1.2rem; }
+
+        .field-group { margin-bottom: 25px; }
+        label { display: block; font-family: monospace; font-size: 12px; color: var(--primary); margin-bottom: 10px; font-weight: bold; text-transform: uppercase; }
+        
+        textarea {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            padding: 15px;
+            color: var(--text-main);
+            font-size: 16px;
+            line-height: 1.6;
+            resize: none;
+            box-sizing: border-box;
+            border-radius: 2px;
+            transition: border-color 0.2s;
+        }
+        textarea:focus { outline: none; border-color: var(--primary); }
+
+        .mood-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .mood-item {
+            background: var(--mood-bg);
+            border: 1px solid var(--border);
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 24px;
+            transition: 0.2s;
+            filter: grayscale(1);
+        }
+        .mood-item.active { filter: grayscale(0); border-color: var(--primary); background: rgba(222, 74, 37, 0.1); }
+
+        .ai-assist-header { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+        .help-btn { font-family: monospace; font-size: 11px; color: var(--primary); cursor: pointer; text-decoration: underline; text-transform: uppercase; border: none; background: none; }
+        
+        .prompt-box { 
+            display: none; 
+            background: var(--ai-bg); 
+            border: 1px dashed var(--primary); 
+            padding: 15px; 
+            margin-bottom: 20px; 
+            position: relative; 
+            border-radius: 2px;
+        }
+        .prompt-content { font-size: 13px; font-style: italic; color: var(--text-main); margin: 0; line-height: 1.4; }
+        .copy-chip { position: absolute; top: -10px; right: 10px; background: var(--primary); color: white; font-size: 10px; padding: 2px 8px; cursor: pointer; font-weight: bold; }
+
+        .btn-main { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; font-family: monospace; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-bottom: 10px; }
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn-sec { padding: 10px; background: var(--border); color: var(--text-main); border: none; font-family: monospace; cursor: pointer; font-size: 12px; }
+
+        /* Info Page Styles */
+        .info-content { display: none; line-height: 1.7; font-size: 15px; }
+        .info-content h3 { color: var(--primary); font-family: monospace; text-transform: uppercase; margin-top: 25px; }
+        .info-content p { color: var(--text-main); margin-bottom: 15px; }
+        .quote { border-left: 2px solid var(--primary); padding-left: 15px; font-style: italic; color: var(--text-muted); margin: 20px 0; }
+    </style>
+</head>
+<body data-theme="dark">
+
+<div class="app-container">
+    <div class="top-bar">
+        <h2 id="ui-title" style="margin:0; font-size: 18px; color: var(--primary);">MINDFUL</h2>
+        <div class="controls-group">
+            <div class="theme-switcher">
+                <button class="switcher-btn" id="t-auto" onclick="setTheme('auto')">Auto</button>
+                <button class="switcher-btn" id="t-light" onclick="setTheme('light')">☀</button>
+                <button class="switcher-btn" id="t-dark" onclick="setTheme('dark')">☾</button>
+            </div>
+            <div class="lang-switcher">
+                <button class="switcher-btn" id="l-ru" onclick="setLanguage('ru')">RU</button>
+                <button class="switcher-btn" id="l-en" onclick="setLanguage('en')">EN</button>
+                <button class="switcher-btn" id="l-th" onclick="setLanguage('th')">TH</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="nav-tabs">
+        <button class="tab-btn active" id="tab-log" onclick="switchPage('log')">Log</button>
+        <button class="tab-btn" id="tab-info" onclick="switchPage('info')">Philosophy</button>
+    </div>
+
+    <div id="page-log">
+        <div class="progress-label">
+            <span id="ui-sync">Status</span>
+            <span id="xp-val">0%</span>
+        </div>
+        <div class="progress-track"><div id="xp-bar"></div></div>
+
+        <div class="date-nav">
+            <button class="btn-sec" onclick="moveDate(-1)">[ < ]</button>
+            <div class="date-display" id="date-text"></div>
+            <button class="btn-sec" onclick="moveDate(1)">[ > ]</button>
+        </div>
+
+        <div class="field-group">
+            <label id="ui-thoughts">> Thoughts</label>
+            <textarea id="txt-thoughts" oninput="autoHeight(this); sync()"></textarea>
+        </div>
+
+        <div class="field-group">
+            <label id="ui-mood">> Mood</label>
+            <div class="mood-grid">
+                <div class="mood-item" onclick="pickMood('😊', this)">😊</div>
+                <div class="mood-item" onclick="pickMood('😌', this)">😌</div>
+                <div class="mood-item" onclick="pickMood('😴', this)">😴</div>
+                <div class="mood-item" onclick="pickMood('😫', this)">😫</div>
+            </div>
+        </div>
+
+        <div class="ai-assist-header">
+            <button class="help-btn" id="ui-help" onclick="togglePrompt()">Need help?</button>
+        </div>
+
+        <div class="prompt-box" id="prompt-container">
+            <div class="copy-chip" id="ui-copy" onclick="copyPrompt()">COPY</div>
+            <p class="prompt-content" id="prompt-text"></p>
+        </div>
+
+        <div class="field-group">
+            <label id="ui-actions">> Actions</label>
+            <textarea id="txt-actions" oninput="autoHeight(this); sync()"></textarea>
+        </div>
+
+        <button class="btn-main" id="ui-save" onclick="saveData()">Commit to Disk</button>
+        <div class="action-grid">
+            <button class="btn-sec" id="ui-export" onclick="exportJSON()">Export</button>
+            <button class="btn-sec" id="ui-import" onclick="document.getElementById('file-up').click()">Import</button>
+        </div>
+        <input type="file" id="file-up" style="display:none" onchange="importJSON(event)">
+    </div>
+
+    <div id="page-info" class="info-content">
+        <div id="info-text-container">
+            </div>
+    </div>
+</div>
+
+<script>
+    const i18n = {
+        ru: { 
+            title: "MINDFUL", thoughts: "> Мысли", mood: "> Состояние", actions: "> Действия", save: "Сохранить", export: "Экспорт", import: "Импорт", sync: "Синхронизация", help: "Нужна помощь?", copy: "КОПИРОВАТЬ", copied: "ГОТОВО!", tabLog: "Дневник", tabInfo: "Философия",
+            prompt: "Привет! Сейчас я чувствую себя {mood}. Мои мысли: {thoughts}. Предложи ОДНО простое и маленькое действие на 5 минут, чтобы я мог сдвинуться с места и почувствовать себя лучше.",
+            philosophy: `
+                <h3>Корейская система осознанности</h3>
+                <p>Этот ежедневник базируется на философии баланса между внутренним хаосом и внешним порядком. В Корее популярна концепция "сохвакхэн" — нахождение маленького, но верного счастья в повседневности.</p>
+                <div class="quote">"Чтобы наполнить чашу, её нужно сначала опустошить."</div>
+                <h3>1. Мысли (Биум — Опустошение)</h3>
+                <p>Выписывание мыслей — это не просто отчет. Это процесс переноса ментального шума на бумагу (или экран). Когда мысль записана, мозгу больше не нужно тратить энергию на её удержание.</p>
+                <h3>2. Эмоции (Чэум — Наполнение)</h3>
+                <p>Осознание своего настроения позволяет перестать быть его рабом. Мы фиксируем состояние без осуждения. 😊 или 😫 — это просто данные для системы.</p>
+                <h3>3. Действия (Нанум — Движение)</h3>
+                <p>В этой системе действие — это не список дел. Это ОДИН осознанный шаг. Если вы в ступоре, маленькое действие (даже просто выпить воды) разрушает инерцию "мертвой зоны".</p>
+            `
+        },
+        en: { 
+            title: "MINDFUL", thoughts: "> Thoughts", mood: "> Mood", actions: "> Actions", save: "Commit", export: "Export", import: "Import", sync: "Sync Status", help: "Need help?", copy: "COPY", copied: "DONE!", tabLog: "Log", tabInfo: "Philosophy",
+            prompt: "Hi! I'm feeling {mood}. My thoughts: {thoughts}. Suggest ONE simple 5-minute action to help me break the stall and feel better.",
+            philosophy: `
+                <h3>Korean Mindfulness System</h3>
+                <p>This journal is based on the philosophy of balance between inner chaos and outer order. Korea embraces the concept of "So-Hwak-Haeng" — finding small but certain happiness in everyday life.</p>
+                <div class="quote">"To fill a cup, one must first empty it."</div>
+                <h3>1. Thoughts (Bieum — Emptying)</h3>
+                <p>Writing down thoughts isn't just reporting. It's the process of transferring mental noise to screen. Once recorded, the brain no longer wastes energy holding onto it.</p>
+                <h3>2. Emotions (Chaeum — Filling)</h3>
+                <p>Acknowledging your mood allows you to stop being its slave. We record our state without judgment. 😊 or 😫 are just data points for the system.</p>
+                <h3>3. Actions (Nanum — Sharing/Movement)</h3>
+                <p>In this system, an action isn't a to-do list. It's ONE conscious step. If you're stuck, a tiny action (even just drinking water) breaks the inertia of the "dead zone".</p>
+            `
+        },
+        th: { 
+            title: "MINDFUL", thoughts: "> ความคิด", mood: "> อารมณ์", actions: "> การกระทำ", save: "บันทึก", export: "ส่งออก", import: "นำเข้า", sync: "สถานะ", help: "ต้องการความช่วยเหลือ?", copy: "คัดลอก", copied: "สำเร็จ!", tabLog: "บันทึก", tabInfo: "ปรัชญา",
+            prompt: "สวัสดี ตอนนี้ฉันรู้สึก {mood} ความคิดของฉันคือ: {thoughts} ช่วยแนะนำกิจกรรมง่ายๆ เพียงอย่างเดียวที่ใช้เวลา 5 นาที เพื่อให้ฉันเริ่มขยับตัวและรู้สึกดีขึ้น",
+            philosophy: `
+                <h3>ระบบสติแบบเกาหลี</h3>
+                <p>บันทึกนี้อิงตามปรัชญาแห่งความสมดุลระหว่างความวุ่นวายภายในและระเบียบภายนอก ในเกาหลีมีแนวคิด "โซ-ฮวัก-แฮง" (So-Hwak-Haeng) — การค้นหาความสุขเล็กๆ ที่แน่นอนในชีวิตประจำวัน</p>
+                <div class="quote">"ในการจะเติมน้ำให้เต็มถ้วย เราต้องทำให้ถ้วยว่างเปล่าก่อน"</div>
+                <h3>1. ความคิด (Bieum — การทำให้ว่าง)</h3>
+                <p>การเขียนความคิดไม่ใช่แค่การรายงาน แต่เป็นกระบวนการถ่ายโอนเสียงรบกวนทางจิตใจลงสู่หน้าจอ เมื่อบันทึกแล้ว สมองก็ไม่ต้องเสียพลังงานในการยึดติดกับมันอีกต่อไป</p>
+                <h3>2. อารมณ์ (Chaeum — การเติมเต็ม)</h3>
+                <p>การรับรู้อารมณ์ช่วยให้คุณหยุดเป็นทาสของมัน เราบันทึกสภาวะของเราโดยไม่ตัดสิน 😊 หรือ 😫 เป็นเพียงข้อมูลสำหรับระบบ</p>
+                <h3>3. การกระทำ (Nanum — การแบ่งปัน/การเคลื่อนไหว)</h3>
+                <p>ในระบบนี้ การกระทำไม่ใช่รายการสิ่งที่ต้องทำ แต่เป็น "ก้าวเดียว" ที่มีสติ หากคุณติดขัด การกระทำเล็กๆ (แม้แต่การดื่มน้ำ) จะช่วยทำลายความเฉื่อยชาได้</p>
+            `
+        }
+    };
+
+    let currentDay = new Date();
+    currentDay.setHours(0,0,0,0);
+
+    function switchPage(page) {
+        document.getElementById('page-log').style.display = page === 'log' ? 'block' : 'none';
+        document.getElementById('page-info').style.display = page === 'info' ? 'block' : 'none';
+        document.getElementById('tab-log').classList.toggle('active', page === 'log');
+        document.getElementById('tab-info').classList.toggle('active', page === 'info');
+    }
+
+    function setTheme(mode) {
+        localStorage.setItem('user_theme', mode);
+        document.querySelectorAll('.theme-switcher .switcher-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('t-' + mode).classList.add('active');
+        if (mode === 'auto') {
+            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.body.setAttribute('data-theme', isDark ? 'dark' : 'light');
+        } else {
+            document.body.setAttribute('data-theme', mode);
+        }
+    }
+
+    function setLanguage(lang) {
+        localStorage.setItem('user_lang', lang);
+        document.querySelectorAll('.lang-switcher .switcher-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('l-' + lang).classList.add('active');
+
+        const t = i18n[lang];
+        document.getElementById('ui-title').innerText = t.title;
+        document.getElementById('ui-thoughts').innerText = t.thoughts;
+        document.getElementById('ui-mood').innerText = t.mood;
+        document.getElementById('ui-actions').innerText = t.actions;
+        document.getElementById('ui-save').innerText = t.save;
+        document.getElementById('ui-export').innerText = t.export;
+        document.getElementById('ui-import').innerText = t.import;
+        document.getElementById('ui-sync').innerText = t.sync;
+        document.getElementById('ui-help').innerText = t.help;
+        document.getElementById('ui-copy').innerText = t.copy;
+        document.getElementById('tab-log').innerText = t.tabLog;
+        document.getElementById('tab-info').innerText = t.tabInfo;
+        
+        document.getElementById('info-text-container').innerHTML = t.philosophy;
+
+        renderDate(lang);
+    }
+
+    function renderDate(lang) {
+        const options = { weekday: 'short', month: 'short', day: 'numeric' };
+        const locale = lang === 'th' ? 'th-TH' : (lang === 'ru' ? 'ru-RU' : 'en-US');
+        document.getElementById('date-text').innerText = currentDay.toLocaleDateString(locale, options).toUpperCase();
+        loadData();
+    }
+
+    function togglePrompt() {
+        const box = document.getElementById('prompt-container');
+        if (box.style.display === 'block') {
+            box.style.display = 'none';
+        } else {
+            const lang = localStorage.getItem('user_lang') || 'en';
+            const mood = document.querySelector('.mood-item.active')?.innerText || "...";
+            const thoughts = document.getElementById('txt-thoughts').value || "...";
+            const text = i18n[lang].prompt.replace('{mood}', mood).replace('{thoughts}', thoughts);
+            document.getElementById('prompt-text').innerText = text;
+            box.style.display = 'block';
+        }
+    }
+
+    function copyPrompt() {
+        const text = document.getElementById('prompt-text').innerText;
+        navigator.clipboard.writeText(text);
+        const lang = localStorage.getItem('user_lang') || 'en';
+        const chip = document.getElementById('ui-copy');
+        chip.innerText = i18n[lang].copied;
+        setTimeout(() => chip.innerText = i18n[lang].copy, 2000);
+    }
+
+    const getKey = () => 'mf_v3_' + currentDay.toISOString().split('T')[0];
+    
+    function sync() {
+        let s = 0;
+        if(document.getElementById('txt-thoughts').value.length > 5) s += 40;
+        if(document.getElementById('txt-actions').value.length > 5) s += 40;
+        if(document.querySelector('.mood-item.active')) s += 20;
+        document.getElementById('xp-bar').style.width = s + '%';
+        document.getElementById('xp-val').innerText = s + '%';
+    }
+
+    function saveData() {
+        const mood = document.querySelector('.mood-item.active');
+        localStorage.setItem(getKey(), JSON.stringify({
+            t: document.getElementById('txt-thoughts').value,
+            a: document.getElementById('txt-actions').value,
+            m: mood ? mood.innerText : ''
+        }));
+    }
+
+    function loadData() {
+        const data = JSON.parse(localStorage.getItem(getKey())) || {t:'', a:'', m:''};
+        document.getElementById('txt-thoughts').value = data.t;
+        document.getElementById('txt-actions').value = data.a;
+        document.querySelectorAll('.mood-item').forEach(m => m.classList.toggle('active', m.innerText === data.m));
+        document.getElementById('prompt-container').style.display = 'none';
+        autoHeight(document.getElementById('txt-thoughts'));
+        autoHeight(document.getElementById('txt-actions'));
+        sync();
+    }
+
+    function moveDate(n) { saveData(); currentDay.setDate(currentDay.getDate() + n); renderDate(localStorage.getItem('user_lang')); }
+    function autoHeight(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+    function pickMood(emoji, el) { document.querySelectorAll('.mood-item').forEach(m => m.classList.remove('active')); el.classList.add('active'); sync(); saveData(); }
+
+    const savedTheme = localStorage.getItem('user_theme') || 'auto';
+    setTheme(savedTheme);
+    const browserLang = navigator.language.split('-')[0];
+    const savedLang = localStorage.getItem('user_lang') || (['ru','th','en'].includes(browserLang) ? browserLang : 'en');
+    setLanguage(savedLang);
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if(localStorage.getItem('user_theme') === 'auto') setTheme('auto');
+    });
+</script>
+</body>
+</html>
